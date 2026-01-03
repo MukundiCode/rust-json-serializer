@@ -1,5 +1,122 @@
 use std::collections::HashMap;
 use crate::json_reader::JsonValue::{JsonArray, JsonBoolean, JsonFloat, JsonInt, JsonObject, JsonString};
+use crate::json_reader::Token::{COLON, COMMA, FALSE, LBRACE, LBRACKET, NULL, RBRACE, RBRACKET, STRING, TRUE};
+
+enum Token {
+    LBRACE,
+    RBRACE,
+    LBRACKET,
+    RBRACKET,
+    STRING(String),
+    NUMBER(f64),
+    COLON,
+    COMMA,
+    TRUE,
+    FALSE,
+    NULL,
+    EOF,
+    NONE
+}
+
+struct Lexer {
+    current_index: usize,
+    current_token: Token,
+    tokens: Vec<Token>,
+    json: String
+}
+
+impl Lexer {
+    pub fn new(json: &str) -> Self {
+        Self {
+            current_index: 0,
+            current_token: Token::NONE,
+            tokens: vec![],
+            json: json.to_string(),
+        }
+    }
+
+    pub fn get_tokens(mut self) -> Vec<Token> {
+        while self.current_index < self.json.len() {
+
+            if let Some(c) = self.json.chars().nth(self.current_index) {
+                match self.current_token {
+                    Token::NONE => {
+                        match c {
+                            '{' => {
+                                &self.tokens.push(LBRACE);
+                            },
+                            '}' => {
+                                &self.tokens.push(RBRACE);
+                            },
+                            '[' => {
+                                &self.tokens.push(LBRACKET);
+                            },
+                            ']' => {
+                                &self.tokens.push(RBRACKET);
+                            },
+                            ':' => {
+                                &self.tokens.push(COLON);
+                            },
+                            ',' => {
+                                &self.tokens.push(COMMA);
+                            },
+                            '"' => {
+                                &self.tokens.push(STRING("\"".to_string()));
+                            },
+                            _ => {
+                                if (c == 't') {
+                                    self.tokens.push(TRUE)
+                                } else if (c == 'f') {
+                                    self.tokens.push(FALSE)
+                                } else if (c == 'n') {
+                                    self.tokens.push(NULL)
+                                }
+                            }
+                        }
+                    }
+                    Token::LBRACE => {
+
+                    },
+                    Token::RBRACE => {
+
+                    },
+                    Token::LBRACKET => {
+
+                    },
+                    Token::RBRACKET => {
+
+                    },
+                    Token::NUMBER(_) => {
+
+                    },
+                    Token::STRING(_) => {
+
+                    },
+                    Token::COLON => {
+
+                    },
+                    Token::COMMA => {
+
+                    },
+                    Token::TRUE => {
+
+                    },
+                    Token::FALSE => {
+
+                    },
+                    Token::EOF => {
+
+                    },
+                    Token::NULL => {
+
+                    }
+                }
+            }
+        }
+
+        self.tokens
+    }
+}
 
 #[derive(Debug, PartialEq)]
 pub enum JsonValue {
@@ -11,119 +128,7 @@ pub enum JsonValue {
     JsonArray(Vec<JsonValue>)
 }
 pub fn read(json: &str) -> (Option<HashMap<String, JsonValue>>, usize) {
-    let mut words: Vec<&str>  = split_preserving_quotes(json);
-    println!("${:?}", words);
-    let size = words.len();
-    let mut index = 0;
-    let mut result: HashMap<String, JsonValue> = HashMap::new();
-
-    // run
-    while index < size {
-        match words[index] {
-                "{}" => break,
-                "{" | "," => {
-                    // get key (n + 1), skip separator(n + 2), get value(n + 3), if none of these exist, panic
-                    index = index + 1;
-                    let key: &str = words[index];
-                    index = index + 2;
-                    let mut value: &str = words[index];
-                    // if value ends with , or }, remove it and add it to words at index + 1
-                    [",", "}"].iter().for_each(|c| {
-                        if value.ends_with(c) {
-                            value = &value[..value.len()-1];
-                            words.insert(index + 1, c);
-                            println!("checking {c} {:?}", words);
-                        }
-                    });
-
-                    if is_int(value) {
-                        result.insert(
-                            key.replace("\"", "").to_string(),
-                            JsonInt(value.parse::<i32>().unwrap())
-                        );
-                    } else if is_float(value) {
-                        result.insert(
-                            key.replace("\"", "").to_string(),
-                            JsonFloat(value.parse::<f64>().unwrap())
-                        );
-                    } else if is_bool(value) {
-                        result.insert(
-                            key.replace("\"", "").to_string(),
-                            JsonBoolean(value.parse::<bool>().unwrap())
-                        );
-                    } else if is_json_object(value) {
-                        // expect val to be '{...}'
-                        let (obj, i) = read(&value[1..value.len()-1]);
-                        match obj {
-                            None => {}
-                            Some(val) => {
-                                result.insert(
-                                    key.replace("\"", "").to_string(),
-                                    JsonObject(val)
-                                );
-                                index = index + i;
-                            }
-                        }
-                    } else if is_json_arr(value) {
-                        // expect val to be '[...]',, need to remove '[ and ]' in this case
-                        let items = split_on_commas_preserving_quotes(&value[2..value.len()-2]);
-                        let mut json_arr: Vec<JsonValue> = Vec::new();
-                        for item in items {
-                            match item {
-                                _val if is_int(item) => {
-                                    json_arr.push(JsonInt(item.parse::<i32>().unwrap()))
-                                }
-                                _val if is_float(item) => {
-                                    json_arr.push(JsonFloat(item.parse::<f64>().unwrap()));
-                                }
-                                _val if is_bool(item) => {
-                                    json_arr.push(JsonBoolean(item.parse::<bool>().unwrap()));
-                                }
-                                _val if is_json_object(item) => {
-                                    let (obj, _) = read(&item[1..item.len()-1]);
-                                    match obj {
-                                        None => {}
-                                        Some(val) => {
-                                            json_arr.push(JsonObject(val));
-                                            // index = index + i;
-                                        }
-                                    }
-                                }
-                                _val if is_json_arr(item) => {
-
-                                }
-                                _ => {
-                                    // assume string
-                                    json_arr.push(JsonString(item.replace("\"", "").to_string()))
-                                }
-                            }
-                        }
-
-                        // finally, add this to the obj
-                        result.insert(
-                            key.replace("\"", "").to_string(),
-                            JsonArray(json_arr)
-                        );
-
-                    }
-                    else {
-                        result.insert(
-                            key.replace("\"", "").to_string(),
-                            JsonString(value.replace("\"", "").to_string())
-                        );
-                    }
-                },
-                _ => break
-            }
-        index = index + 1;
-    }
-
-    if result.is_empty(){
-        (None, index)
-    }
-    else {
-        (Some(result), index)
-    }
+    return todo!("Doing")
 }
 
 fn read_helper(json: &str) -> Option<HashMap<String, JsonValue>> {
@@ -144,11 +149,11 @@ fn is_bool(s: &str) -> bool {
 }
 
 fn is_json_object(s: &str) -> bool {
-    s.starts_with("'{") && s.ends_with("}'")
+    (s.starts_with("'{") && s.ends_with("}'")) || (s.starts_with("{") && s.ends_with("}"))
 }
 
 fn is_json_arr(s: &str) -> bool {
-    s.starts_with("'[") && s.ends_with("]'")
+    s.starts_with("[") && s.ends_with("]")
 }
 
 fn split_preserving_quotes(input: &str) -> Vec<&str> {
@@ -319,7 +324,7 @@ mod tests {
 
     #[test]
     fn read_json_with_inner_obj () {
-        let json = r#"{ "key" : '{ "key1" : true, "key2" : false, "key3" : 5.0 , "key4" : 5, "key5" : "value5" }' }"#;
+        let json = r#"{ "key" : { "key1" : true, "key2" : false, "key3" : 5.0 , "key4" : 5, "key5" : "value5" } }"#;
         let mut expected = HashMap::new();
         let mut expected_inner = HashMap::new();
         expected_inner.insert("key1".to_string() , JsonBoolean(true));
@@ -334,7 +339,7 @@ mod tests {
 
     #[test]
     fn read_json_inner_array () {
-        let json = r#"{ "key" : '["value1", "value2", "value3"]' }"#;
+        let json = r#"{ "key" : ["value1", "value2", "value3"] }"#;
         let mut expected = HashMap::new();
         expected.insert("key".to_string() , JsonArray(vec![
             JsonString("value1".to_string()),
@@ -347,7 +352,7 @@ mod tests {
 
     #[test]
     fn read_json_inner_array_different_types_no_obj () {
-        let json = r#"{ "key" : '["value1", 67, 6.7, true, false]'}"#;
+        let json = r#"{ "key" : ["value1", 67, 6.7, true, false]}"#;
         let mut expected = HashMap::new();
         let mut expected_inner = HashMap::new();
         expected_inner.insert("key1".to_string() , JsonBoolean(true));
@@ -368,7 +373,7 @@ mod tests {
 
     #[test]
     fn read_json_inner_array_with_obj () {
-        let json = r#"{ "key" : '['{ "key1" : true, "key2" : false, "key3" : 5.0 , "key4" : 5, "key5" : "value5" }']'}"#;
+        let json = r#"{ "key" : [{ "key1" : true, "key2" : false, "key3" : 5.0 , "key4" : 5, "key5" : "value5" }]}"#;
         let mut expected = HashMap::new();
         let mut expected_inner = HashMap::new();
         expected_inner.insert("key1".to_string() , JsonBoolean(true));
