@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use crate::json_reader::JsonValue::{JsonArray, JsonBoolean, JsonFloat, JsonInt, JsonObject, JsonString};
-use crate::json_reader::Token::{COLON, COMMA, FALSE, LBRACE, LBRACKET, NULL, RBRACE, RBRACKET, STRING, TRUE};
+use crate::json_reader::Token::{COLON, COMMA, FALSE, LBRACE, LBRACKET, NULL, NUMBER, RBRACE, RBRACKET, STRING, TRUE};
 
 enum Token {
     LBRACE,
@@ -61,7 +61,7 @@ impl Lexer {
                                 &self.tokens.push(COMMA);
                             },
                             '"' => {
-                                &self.tokens.push(STRING("\"".to_string()));
+                                self.current_token = STRING("\"".to_string());
                             },
                             _ => {
                                 if (c == 't') {
@@ -70,46 +70,31 @@ impl Lexer {
                                     self.tokens.push(FALSE)
                                 } else if (c == 'n') {
                                     self.tokens.push(NULL)
-                                }
+                                } // else if is number
                             }
                         }
                     }
-                    Token::LBRACE => {
-
+                    LBRACE | RBRACE | LBRACKET | RBRACKET |
+                    COLON | COMMA | TRUE | FALSE | Token::EOF | NULL => {
+                        continue
                     },
-                    Token::RBRACE => {
-
+                    NUMBER(num) => {
+                        if (c == ' ') {
+                            self.tokens.push(NUMBER(num));
+                            continue;
+                        }
+                        let mut num_string = num.to_string();
+                        num_string.push(c);
+                        if let Ok(new_num) = num_string.as_str().parse::<f64>() {
+                            self.current_token = NUMBER(new_num);
+                        }
                     },
-                    Token::LBRACKET => {
-
+                    STRING(text) => {
+                        if (c == ' ') {
+                            self.tokens.push(STRING(text));
+                            continue;
+                        }
                     },
-                    Token::RBRACKET => {
-
-                    },
-                    Token::NUMBER(_) => {
-
-                    },
-                    Token::STRING(_) => {
-
-                    },
-                    Token::COLON => {
-
-                    },
-                    Token::COMMA => {
-
-                    },
-                    Token::TRUE => {
-
-                    },
-                    Token::FALSE => {
-
-                    },
-                    Token::EOF => {
-
-                    },
-                    Token::NULL => {
-
-                    }
                 }
             }
         }
